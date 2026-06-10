@@ -263,13 +263,20 @@ with tab1:
 
         st.divider()
 
-        # --- 添加到列表 ---
-        if st.button("📥 添加到生成列表", type="primary", key="add_to_list") and st_name:
+        # --- 生成按钮 ---
+        if st.button("🚀 生成并下载", type="primary", key="gen_now") and st_name:
+            doc = build_archive_doc(st_name, {"学校": school, "年级班级": grade, "入学时间": enroll}, subj_data)
+            safe = st_name.replace("/","_")
+            buf = io.BytesIO(); doc.save(buf); buf.seek(0)
+            st.download_button("📥 下载档案", buf.read(), f"{safe}.docx",
+                               "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                               key=f"dl_now_{safe}")
+            st.success(f"✅ {st_name} 的档案已生成")
+            # 同时保存到批量列表
             st.session_state.archive_students[st_name] = {
                 "info": {"学校": school, "年级班级": grade, "入学时间": enroll},
                 "subjects": copy.deepcopy(subj_data)
             }
-            st.success(f"✅ {st_name} 已加入列表（共 {len(st.session_state.archive_students)} 名学生待生成）")
             if f"subj_count_{st_name}" in st.session_state:
                 del st.session_state[f"subj_count_{st_name}"]
 
