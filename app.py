@@ -541,10 +541,11 @@ with tab2:
 
         st.divider()
 
-        if fb_lesson and fb_data:
-            col_gen, col_save = st.columns([2, 1])
-            with col_gen:
-                if st.button("🚀 生成全部反馈", type="primary", key="gen_fb_online"):
+        col_gen, col_save = st.columns([2, 1])
+        with col_gen:
+            btn_disabled = not (fb_lesson and fb_data)
+            if st.button("🚀 生成全部反馈", type="primary", key="gen_fb_online", disabled=btn_disabled):
+                if fb_lesson and fb_data:
                     st.success(f"✅ 已生成 {len(fb_data)} 份反馈")
                     for i, s in enumerate(fb_data):
                         txt = f"【课后反馈】{fb_date}\n\n📚 上节课主要内容：\n\n{fb_lesson}\n\n👦 {s['姓名']}课堂表现：\n\n{s['表现']}"
@@ -552,7 +553,7 @@ with tab2:
                             st.text(txt)
                             safe = s["姓名"].replace("/","_")
                             st.download_button(f"📥 下载 {s['姓名']}.txt", txt, f"{safe}.txt", "text/plain", key=f"dl_fb_{i}")
-            with col_save:
+        with col_save:
                 fb_draft_out = {"date": fb_date, "course": fb_course, "lesson": fb_lesson,
                                 "students": [{"name": s["姓名"], "notes": s["表现"]} for s in fb_data]}
                 st.download_button("💾 保存草稿", json.dumps(fb_draft_out, ensure_ascii=False, indent=2),
