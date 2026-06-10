@@ -273,15 +273,25 @@ with tab1:
         if st.session_state.archive_students:
             st.divider()
             st.subheader(f"📋 待生成列表（{len(st.session_state.archive_students)} 名学生）")
-            cols = st.columns(len(st.session_state.archive_students) or 1)
             for idx, (name, data) in enumerate(st.session_state.archive_students.items()):
-                with cols[idx % len(cols)]:
-                    subj_list = ", ".join([s["科目"] for s in data["subjects"]])
-                    st.info(f"**{name}**\n\n{data['info']['学校']} {data['info']['年级班级']}\n\n科目: {subj_list}")
+                subj_list = ", ".join([s["科目"] for s in data["subjects"]])
+                c_info, c_dl = st.columns([5, 1])
+                with c_info:
+                    st.info(f"**{name}** · {data['info']['学校']} {data['info']['年级班级']} · 科目: {subj_list}")
+                with c_dl:
+                    doc = build_archive_doc(name, data["info"], data["subjects"])
+                    safe = name.replace("/","_")
+                    buf = io.BytesIO()
+                    doc.save(buf)
+                    buf.seek(0)
+                    st.download_button(f"📥 {name}", buf.read(), f"{safe}.docx",
+                                       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                       key=f"dl_{safe}")
 
+            st.divider()
             col_gen, col_clear = st.columns([1, 3])
             with col_gen:
-                if st.button("🚀 一键生成全部", type="primary", key="gen_online"):
+                if st.button("🚀 打包下载全部（ZIP）", type="primary", key="gen_online"):
                     with tempfile.TemporaryDirectory() as tmpdir:
                         zip_path = os.path.join(tmpdir, "档案汇总.zip")
                         with zipfile.ZipFile(zip_path, 'w') as zf:
@@ -291,7 +301,7 @@ with tab1:
                                 dp = os.path.join(tmpdir, f"{safe}.docx")
                                 doc.save(dp); zf.write(dp, f"{safe}.docx")
                         with open(zip_path, "rb") as f:
-                            st.download_button("📥 下载全部档案（ZIP）", f.read(),
+                            st.download_button("📦 下载全部档案（ZIP）", f.read(),
                                                "学生档案汇总.zip", "application/zip")
                         st.success(f"✅ 已生成 {len(st.session_state.archive_students)} 份档案")
             with col_clear:
@@ -382,24 +392,36 @@ with tab2:
         st.divider()
 
         if fb_lesson and fb_data:
-            if st.button("🚀 生成全部反馈", type="primary", key="gen_fb_online"):
-                with tempfile.TemporaryDirectory() as tmpdir:
-                    zip_path = os.path.join(tmpdir, "反馈汇总.zip")
-                    with zipfile.ZipFile(zip_path, 'w') as zf:
-                        all_txt = ""
-                        for s in fb_data:
-                            txt = f"【课后反馈】{fb_date}\n\n📚 上节课主要内容：\n\n{fb_lesson}\n\n👦 {s['姓名']}课堂表现：\n\n{s['表现']}"
-                            safe = s["姓名"].replace("/","_")
-                            tp = os.path.join(tmpdir, f"{safe}.txt")
-                            with open(tp, "w", encoding="utf-8") as tf: tf.write(txt)
-                            zf.write(tp, f"{safe}.txt")
-                            all_txt += txt + "\n\n" + "—"*20 + "\n\n"
-                        sp = os.path.join(tmpdir, "全部反馈汇总.txt")
-                        with open(sp, "w", encoding="utf-8") as sf: sf.write(all_txt)
-                        zf.write(sp, "全部反馈汇总.txt")
-                    with open(zip_path, "rb") as f:
-                        st.download_button("📥 下载全部反馈（ZIP）", f.read(), "课后反馈汇总.zip", "application/zip")
-                    st.success(f"✅ 已生成 {len(fb_data)} 份反馈")
+            # 单份下载按钮
+            st.subheader("📥 单份下载")
+            fb_cols = st.columns(min(len(fb_data), 4))
+            for i, s in enumerate(fb_data):
+                txt = f"【课后反馈】{fb_date}\n\n📚 上节课主要内容：\n\n{fb_lesson}\n\n👦 {s['姓名']}课堂表现：\n\n{s['表现']}"
+                safe = s["姓名"].replace("/","_")
+                with fb_cols[i % len(fb_cols)]:
+                    st.download_button(f"📥 {s['姓名']}", txt, f"{safe}.txt", "text/plain", key=f"dl_fb_{i}")
+
+            st.divider()
+            col_fb1, col_fb2 = st.columns([1, 3])
+            with col_fb1:
+                if st.button("📦 打包下载全部", type="primary", key="gen_fb_online"):
+                    with tempfile.TemporaryDirectory() as tmpdir:
+                        zip_path = os.path.join(tmpdir, "反馈汇总.zip")
+                        with zipfile.ZipFile(zip_path, 'w') as zf:
+                            all_txt = ""
+                            for s in fb_data:
+                                txt = f"【课后反馈】{fb_date}\n\n📚 上节课主要内容：\n\n{fb_lesson}\n\n👦 {s['姓名']}课堂表现：\n\n{s['表现']}"
+                                safe = s["姓名"].replace("/","_")
+                                tp = os.path.join(tmpdir, f"{safe}.txt")
+                                with open(tp, "w", encoding="utf-8") as tf: tf.write(txt)
+                                zf.write(tp, f"{safe}.txt")
+                                all_txt += txt + "\n\n" + "—"*20 + "\n\n"
+                            sp = os.path.join(tmpdir, "全部反馈汇总.txt")
+                            with open(sp, "w", encoding="utf-8") as sf: sf.write(all_txt)
+                            zf.write(sp, "全部反馈汇总.txt")
+                        with open(zip_path, "rb") as f:
+                            st.download_button("📦 下载全部反馈（ZIP）", f.read(), "课后反馈汇总.zip", "application/zip")
+                        st.success(f"✅ 已生成 {len(fb_data)} 份反馈")
 
             # 预览
             with st.expander("👁 预览第一条"):
