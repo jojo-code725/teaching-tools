@@ -11,7 +11,9 @@ from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from collections import defaultdict
-import io, json, os, tempfile, zipfile, copy
+import io, json, os, tempfile, zipfile, copy, re, ssl
+import urllib.request, urllib.error
+ssl._create_default_https_context = ssl._create_unverified_context
 
 st.set_page_config(page_title="教培效率工具", page_icon="📚", layout="wide")
 st.title("📚 教培效率工具 v2")
@@ -98,6 +100,67 @@ def build_archive_doc(name, info, subjects):
         doc.add_paragraph()
     add_summary_table(doc, subjects)
     return doc
+
+# ============================================================
+# AI 文件总结
+# ============================================================
+def extract_text(file_bytes, filename):
+    """从上传文件中提取文本"""
+    ext = os.path.splitext(filename)[1].lower()
+    if ext == '.txt':
+        return file_bytes.decode('utf-8', errors='ignore')
+    elif ext == '.docx':
+        from docx import Document as DocRead
+        from io import BytesIO
+        doc = DocRead(BytesIO(file_bytes))
+        return '\n'.join([p.text for p in doc.paragraphs if p.text.strip()])
+    elif ext == '.pdf':
+        try:
+            from PyPDF2 import PdfReader
+            reader = PdfReader(io.BytesIO(file_bytes))
+            return '\n'.join([page.extract_text() or '' for page in reader.pages])
+        except ImportError:
+            return "[PDF读取需要安装PyPDF2，请在requirements.txt中添加]"
+    else:
+        return f"[不支持的文件格式: {ext}]"
+
+def ai_summarize(text, api_key, max_chars=300):
+    """调用DeepSeek API总结文本"""
+    if not api_key:
+        return None, "请先输入API Key"
+    if len(text) < 50:
+        return None, "文本太短，无需总结"
+
+    # 截取前8000字发送给AI
+    prompt_text = text[:8000]
+
+    payload = json.dumps({
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": "你是一个专业的教育内容总结助手。请将以下教学内容总结为约300字的上课内容概述，用中文输出，分为2-3段，突出知识点、教学重点和课堂练习内容。直接输出总结，不要加前缀说明。"},
+            {"role": "user", "content": f"请总结以下教学内容：\n\n{prompt_text}"}
+        ],
+        "max_tokens": 600,
+        "temperature": 0.5
+    }).encode('utf-8')
+
+    req = urllib.request.Request(
+        "https://api.deepseek.com/v1/chat/completions",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            result = json.loads(resp.read())
+            return result["choices"][0]["message"]["content"].strip(), None
+    except urllib.error.HTTPError as e:
+        err = json.loads(e.read())
+        return None, f"API错误: {err.get('message', str(e))}"
+    except Exception as e:
+        return None, f"请求失败: {str(e)}"
 
 # ============================================================
 # 初始化 session_state
@@ -414,9 +477,37 @@ with tab2:
         fb_draft = st.session_state.get("_fb_draft", {})
 
         st.subheader("📚 上课内容")
-        fb_date = st.text_input("日期", value=fb_draft.get("date","2026.6.10"), key="fb_date")
-        fb_course = st.text_input("课程名称", value=fb_draft.get("course",""), placeholder="例：七上U5 A Healthy Lifestyle", key="fb_course")
-        fb_lesson = st.text_area("上课内容（约300字）", value=fb_draft.get("lesson",""), height=200, key="fb_lesson",
+        # AI总结功能
+        ai_col1, ai_col2 = st.columns([2, 1])
+        with ai_col1:
+            fb_date = st.text_input("日期", value=fb_draft.get("date","2026.6.10"), key="fb_date")
+            fb_course = st.text_input("课程名称", value=fb_draft.get("course",""), placeholder="例：七上U5 A Healthy Lifestyle", key="fb_course")
+        with ai_col2:
+            lesson_file = st.file_uploader("📎 上传教案自动总结", type=["pdf","docx","txt"], key="lesson_file",
+                                           help="支持PDF/Word/文本，自动提取内容并用AI总结为300字")
+            if lesson_file:
+                file_text = extract_text(lesson_file.read(), lesson_file.name)
+                if file_text and not file_text.startswith("["):
+                    st.caption(f"已提取 {len(file_text)} 字")
+                    api_key = st.session_state.get("deepseek_key", "")
+                    if api_key and st.button("✨ AI总结为300字", key="ai_summarize"):
+                        with st.spinner("AI总结中…"):
+                            summary, err = ai_summarize(file_text, api_key)
+                            if err:
+                                st.error(err)
+                            else:
+                                st.session_state._ai_summary = summary
+                                st.success("✅ 已生成，已填入下方文本框")
+                                st.rerun()
+                    elif not api_key:
+                        st.caption("⚠️ 请在侧边栏输入DeepSeek API Key")
+                else:
+                    st.error(file_text)
+
+        ai_summary = st.session_state.get("_ai_summary", "")
+        fb_lesson = st.text_area("上课内容（约300字）",
+            value=ai_summary or fb_draft.get("lesson",""),
+            height=200, key="fb_lesson",
             placeholder="本节课围绕…展开，重点处理了三块内容：\n一是…\n二是…\n三是…")
 
         st.divider()
@@ -470,6 +561,14 @@ with tab2:
 # 侧边栏
 # ============================================================
 with st.sidebar:
+    st.markdown("### 🔑 DeepSeek API Key")
+    api_key = st.text_input("输入Key解锁AI总结功能", type="password", key="deepseek_key_input",
+                            help="在 platform.deepseek.com 获取")
+    if api_key:
+        st.session_state.deepseek_key = api_key
+        st.success("已设置")
+
+    st.divider()
     st.markdown("### 📖 使用说明")
     st.markdown("""
     **两种输入方式，切换顶部开关即可：**
