@@ -408,80 +408,64 @@ with tab2:
 
     else:
         # ===== 在线填写模式 =====
+        fb_draft_file = st.file_uploader("📂 恢复草稿", type=["json"], key="fb_draft_load")
+        if fb_draft_file:
+            st.session_state._fb_draft = json.loads(fb_draft_file.read())
+        fb_draft = st.session_state.get("_fb_draft", {})
+
         st.subheader("📚 上课内容")
-        fb_date = st.text_input("日期", value="2026.6.10", key="fb_date")
-        fb_course = st.text_input("课程名称", placeholder="例：七上U5 A Healthy Lifestyle 知识点+练习", key="fb_course")
-        fb_lesson = st.text_area("上课内容（约300字）", height=200, key="fb_lesson",
+        fb_date = st.text_input("日期", value=fb_draft.get("date","2026.6.10"), key="fb_date")
+        fb_course = st.text_input("课程名称", value=fb_draft.get("course",""), placeholder="例：七上U5 A Healthy Lifestyle", key="fb_course")
+        fb_lesson = st.text_area("上课内容（约300字）", value=fb_draft.get("lesson",""), height=200, key="fb_lesson",
             placeholder="本节课围绕…展开，重点处理了三块内容：\n一是…\n二是…\n三是…")
 
         st.divider()
         st.subheader("👦 学生表现")
 
-        # 动态学生列表
         if "fb_student_count" not in st.session_state:
-            st.session_state.fb_student_count = 3
+            draft_count = len(fb_draft.get("students", []))
+            st.session_state.fb_student_count = max(draft_count, 3)
+        fb_draft_students = fb_draft.get("students", [])
 
         fb_data = []
         for i in range(st.session_state.fb_student_count):
+            dd = fb_draft_students[i] if i < len(fb_draft_students) else {}
             with st.expander(f"学生 {i+1}", expanded=(i==0)):
                 c1, c2 = st.columns([1, 4])
                 with c1:
-                    sname = st.text_input("姓名", key=f"fbn_{i}")
+                    sname = st.text_input("姓名", value=dd.get("name",""), key=f"fbn_{i}")
                 with c2:
-                    snotes = st.text_area("今日表现", key=f"fbp_{i}", height=80,
-                        placeholder="态度还行，错题重做错误偏多，延续性动词转化表格不熟…")
+                    snotes = st.text_area("今日表现", value=dd.get("notes",""), key=f"fbp_{i}", height=80,
+                        placeholder="态度还行，错题重做错误偏多…")
                 if sname and snotes:
                     fb_data.append({"姓名": sname, "表现": snotes})
 
-        col_add_fb, col_del_fb, _ = st.columns([1, 1, 4])
-        with col_add_fb:
-            if st.button("➕ 加一个学生", key="add_fb"):
-                st.session_state.fb_student_count += 1
-                st.rerun()
-        with col_del_fb:
-            if st.button("➖ 减一个学生", key="del_fb") and st.session_state.fb_student_count > 1:
-                st.session_state.fb_student_count -= 1
-                st.rerun()
+        col_add, col_del, _ = st.columns([1, 1, 4])
+        with col_add:
+            if st.button("➕ 学生", key="add_fb"):
+                st.session_state.fb_student_count += 1; st.rerun()
+        with col_del:
+            if st.button("➖ 学生", key="del_fb") and st.session_state.fb_student_count > 1:
+                st.session_state.fb_student_count -= 1; st.rerun()
 
         st.divider()
 
         if fb_lesson and fb_data:
-            # 单份下载按钮
-            st.subheader("📥 单份下载")
-            fb_cols = st.columns(min(len(fb_data), 4))
-            for i, s in enumerate(fb_data):
-                txt = f"【课后反馈】{fb_date}\n\n📚 上节课主要内容：\n\n{fb_lesson}\n\n👦 {s['姓名']}课堂表现：\n\n{s['表现']}"
-                safe = s["姓名"].replace("/","_")
-                with fb_cols[i % len(fb_cols)]:
-                    st.download_button(f"📥 {s['姓名']}", txt, f"{safe}.txt", "text/plain", key=f"dl_fb_{i}")
-
-            st.divider()
-            col_fb1, col_fb2 = st.columns([1, 3])
-            with col_fb1:
-                if st.button("📦 打包下载全部", type="primary", key="gen_fb_online"):
-                    with tempfile.TemporaryDirectory() as tmpdir:
-                        zip_path = os.path.join(tmpdir, "反馈汇总.zip")
-                        with zipfile.ZipFile(zip_path, 'w') as zf:
-                            all_txt = ""
-                            for s in fb_data:
-                                txt = f"【课后反馈】{fb_date}\n\n📚 上节课主要内容：\n\n{fb_lesson}\n\n👦 {s['姓名']}课堂表现：\n\n{s['表现']}"
-                                safe = s["姓名"].replace("/","_")
-                                tp = os.path.join(tmpdir, f"{safe}.txt")
-                                with open(tp, "w", encoding="utf-8") as tf: tf.write(txt)
-                                zf.write(tp, f"{safe}.txt")
-                                all_txt += txt + "\n\n" + "—"*20 + "\n\n"
-                            sp = os.path.join(tmpdir, "全部反馈汇总.txt")
-                            with open(sp, "w", encoding="utf-8") as sf: sf.write(all_txt)
-                            zf.write(sp, "全部反馈汇总.txt")
-                        with open(zip_path, "rb") as f:
-                            st.download_button("📦 下载全部反馈（ZIP）", f.read(), "课后反馈汇总.zip", "application/zip")
-                        st.success(f"✅ 已生成 {len(fb_data)} 份反馈")
-
-            # 预览
-            with st.expander("👁 预览第一条"):
-                s = fb_data[0]
-                st.text(f"【课后反馈】{fb_date}\n\n📚 上节课主要内容：\n\n{fb_lesson}\n\n👦 {s['姓名']}课堂表现：\n\n{s['表现']}")
-
+            col_gen, col_save = st.columns([2, 1])
+            with col_gen:
+                if st.button("🚀 生成全部反馈", type="primary", key="gen_fb_online"):
+                    st.success(f"✅ 已生成 {len(fb_data)} 份反馈")
+                    for i, s in enumerate(fb_data):
+                        txt = f"【课后反馈】{fb_date}\n\n📚 上节课主要内容：\n\n{fb_lesson}\n\n👦 {s['姓名']}课堂表现：\n\n{s['表现']}"
+                        with st.expander(f"📄 {s['姓名']}的反馈", expanded=(i==0)):
+                            st.text(txt)
+                            safe = s["姓名"].replace("/","_")
+                            st.download_button(f"📥 下载 {s['姓名']}.txt", txt, f"{safe}.txt", "text/plain", key=f"dl_fb_{i}")
+            with col_save:
+                fb_draft_out = {"date": fb_date, "course": fb_course, "lesson": fb_lesson,
+                                "students": [{"name": s["姓名"], "notes": s["表现"]} for s in fb_data]}
+                st.download_button("💾 保存草稿", json.dumps(fb_draft_out, ensure_ascii=False, indent=2),
+                                   f"{fb_date}_反馈草稿.json", "application/json", key="save_fb_draft")
 # ============================================================
 # 侧边栏
 # ============================================================
