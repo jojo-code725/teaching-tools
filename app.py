@@ -178,6 +178,19 @@ with tab1:
 
         # --- 学生基本信息 ---
         st.subheader("👤 学生信息")
+
+        # 恢复草稿
+        draft_file = st.file_uploader("📂 恢复草稿（上传之前保存的 .json 文件）", type=["json"], key="draft_load")
+        restored_name = ""
+        if draft_file:
+            draft = json.loads(draft_file.read())
+            st.session_state._restored_draft = draft
+        if "_restored_draft" in st.session_state:
+            draft = st.session_state._restored_draft
+            restored_name = draft.get("_student_name", "")
+            if f"subj_count_{restored_name}" not in st.session_state:
+                st.session_state[f"subj_count_{restored_name}"] = draft.get("subj_count", 4)
+
         c1, c2 = st.columns([1, 3])
         with c1:
             if base_info:
@@ -186,19 +199,24 @@ with tab1:
                 name_sel = "--新学生--"
                 st.caption("加载基础库后可快速选择")
         with c2:
-            manual_name = st.text_input("姓名", value="" if name_sel == "--新学生--" else name_sel, key="manual_name")
+            manual_name = st.text_input("姓名", value=restored_name if restored_name else ("" if name_sel == "--新学生--" else name_sel), key="manual_name")
 
         st_name = manual_name or (name_sel if name_sel != "--新学生--" else "")
 
         # 自动补全
         auto_info = base_info.get(st_name, {}) if st_name else {}
+        # 草稿数据优先
+        draft_info = {}
+        if "_restored_draft" in st.session_state:
+            d = st.session_state._restored_draft
+            draft_info = {"学校": d.get("school",""), "年级班级": d.get("grade",""), "入学时间": d.get("enroll","")}
         c3, c4, c5 = st.columns(3)
         with c3:
-            school = st.text_input("学校", value=auto_info.get("学校",""), key="school")
+            school = st.text_input("学校", value=draft_info.get("学校") or auto_info.get("学校",""), key="school")
         with c4:
-            grade = st.text_input("年级班级", value=auto_info.get("年级班级",""), key="grade")
+            grade = st.text_input("年级班级", value=draft_info.get("年级班级") or auto_info.get("年级班级",""), key="grade")
         with c5:
-            enroll = st.text_input("入学时间", value=auto_info.get("入学时间",""), key="enroll")
+            enroll = st.text_input("入学时间", value=draft_info.get("入学时间") or auto_info.get("入学时间",""), key="enroll")
 
         default_subs = auto_info.get("科目", [{"科目":"英语","托管老师":""},{"科目":"数学","托管老师":""},{"科目":"物理","托管老师":""},{"科目":"语文","托管老师":""}])
 
@@ -217,21 +235,23 @@ with tab1:
             with hc: st.caption(f"**{h}**")
 
         # Score rows - compact
+        draft_subs = st.session_state.get("_restored_draft", {}).get("subj_data", [])
         for i in range(subj_count):
             ds = default_subs[i] if i < len(default_subs) else {"科目":"", "托管老师":""}
+            dd = draft_subs[i] if i < len(draft_subs) else {}
             c1, c2, c3, c4, c5, c6 = st.columns([2, 1.5, 1, 1, 1, 1])
             with c1:
-                subj_name = st.text_input("科目", value=ds.get("科目",""), key=f"sn_{st_name}_{i}", label_visibility="collapsed", placeholder="科目")
+                subj_name = st.text_input("科目", value=dd.get("科目") or ds.get("科目",""), key=f"sn_{st_name}_{i}", label_visibility="collapsed", placeholder="科目")
             with c2:
-                teacher = st.text_input("老师", value=ds.get("托管老师",""), key=f"st_{st_name}_{i}", label_visibility="collapsed", placeholder="老师")
+                teacher = st.text_input("老师", value=dd.get("托管老师") or ds.get("托管老师",""), key=f"st_{st_name}_{i}", label_visibility="collapsed", placeholder="老师")
             with c3:
-                score = st.text_input("成绩", key=f"ss_{st_name}_{i}", label_visibility="collapsed", placeholder="0")
+                score = st.text_input("成绩", value=dd.get("月考成绩",""), key=f"ss_{st_name}_{i}", label_visibility="collapsed", placeholder="0")
             with c4:
-                class_rank = st.text_input("班排", key=f"scr_{st_name}_{i}", label_visibility="collapsed", placeholder="0")
+                class_rank = st.text_input("班排", value=dd.get("班级排名",""), key=f"scr_{st_name}_{i}", label_visibility="collapsed", placeholder="0")
             with c5:
-                school_rank = st.text_input("校排", key=f"ssr_{st_name}_{i}", label_visibility="collapsed", placeholder="0")
+                school_rank = st.text_input("校排", value=dd.get("学校排名",""), key=f"ssr_{st_name}_{i}", label_visibility="collapsed", placeholder="0")
             with c6:
-                total_score = st.text_input("总分", key=f"sts_{st_name}_{i}", label_visibility="collapsed", placeholder="0")
+                total_score = st.text_input("总分", value=dd.get("总分",""), key=f"sts_{st_name}_{i}", label_visibility="collapsed", placeholder="0")
 
             subj_data.append({
                 "科目": subj_name, "托管老师": teacher,
@@ -254,17 +274,40 @@ with tab1:
 
         for i in range(subj_count):
             sn = subj_data[i]["科目"] if i < len(subj_data) else f"科目{i+1}"
+            dd_comment = draft_subs[i] if i < len(draft_subs) else {}
             with st.expander(f"{sn or '新科目'}", expanded=(i==0)):
-                adv = st.text_area("优点", key=f"sa_{st_name}_{i}", height=68)
-                weak = st.text_area("不足", key=f"sw_{st_name}_{i}", height=68)
-                exam = st.text_area("考情分析", key=f"se_{st_name}_{i}", height=100)
-                suggest = st.text_area("下一阶段建议", key=f"ssg_{st_name}_{i}", height=100)
+                adv = st.text_area("优点", value=dd_comment.get("优点",""), key=f"sa_{st_name}_{i}", height=68)
+                weak = st.text_area("不足", value=dd_comment.get("不足",""), key=f"sw_{st_name}_{i}", height=68)
+                exam = st.text_area("考情分析", value=dd_comment.get("考情分析",""), key=f"se_{st_name}_{i}", height=100)
+                suggest = st.text_area("下一阶段建议", value=dd_comment.get("下一阶段建议",""), key=f"ssg_{st_name}_{i}", height=100)
                 subj_data[i].update({"优点": adv, "不足": weak, "考情分析": exam, "下一阶段建议": suggest})
 
         st.divider()
 
         # --- 生成按钮 ---
-        if st.button("🚀 生成并下载", type="primary", key="gen_now") and st_name:
+        col_btn, col_save = st.columns([2, 1])
+        with col_btn:
+            if st.button("🚀 生成并下载", type="primary", key="gen_now") and st_name:
+                doc = build_archive_doc(st_name, {"学校": school, "年级班级": grade, "入学时间": enroll}, subj_data)
+                safe = st_name.replace("/","_")
+                buf = io.BytesIO(); doc.save(buf); buf.seek(0)
+                st.download_button("📥 下载档案", buf.read(), f"{safe}.docx",
+                                   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                   key=f"dl_now_{safe}")
+                st.success(f"✅ {st_name} 的档案已生成")
+                st.session_state.archive_students[st_name] = {
+                    "info": {"学校": school, "年级班级": grade, "入学时间": enroll},
+                    "subjects": copy.deepcopy(subj_data)
+                }
+                if f"subj_count_{st_name}" in st.session_state:
+                    del st.session_state[f"subj_count_{st_name}"]
+        with col_save:
+            draft = {"school": school, "grade": grade, "enroll": enroll,
+                     "subj_count": subj_count, "subj_data": subj_data,
+                     "_student_name": st_name}
+            st.download_button("💾 保存草稿", json.dumps(draft, ensure_ascii=False, indent=2),
+                               f"{st_name or 'draft'}_草稿.json", "application/json",
+                               key="save_draft_btn")
             doc = build_archive_doc(st_name, {"学校": school, "年级班级": grade, "入学时间": enroll}, subj_data)
             safe = st_name.replace("/","_")
             buf = io.BytesIO(); doc.save(buf); buf.seek(0)
