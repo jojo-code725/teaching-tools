@@ -179,9 +179,16 @@ def ai_summarize(text, api_key, max_chars=300):
 # 初始化 session_state
 # ============================================================
 if "archive_students" not in st.session_state:
-    st.session_state.archive_students = {}  # {name: {info: {}, subjects: []}}
+    st.session_state.archive_students = {}
 if "fb_students" not in st.session_state:
-    st.session_state.fb_students = []  # [{name, notes}]
+    st.session_state.fb_students = []
+# 今日统计
+from datetime import date
+today_str = date.today().isoformat()
+if "stats_date" not in st.session_state or st.session_state.stats_date != today_str:
+    st.session_state.stats_date = today_str
+    st.session_state.stats_archive = 0
+    st.session_state.stats_feedback = 0
 
 # ============================================================
 # Tab 1: 学生档案生成
@@ -237,7 +244,7 @@ with tab1:
                         with open(zip_path, "rb") as f:
                             st.download_button("📥 下载全部档案（ZIP）", f.read(),
                                                "学生档案汇总.zip", "application/zip")
-                        st.success(f"✅ 已生成 {len(students)} 份档案")
+                        st.success(f"✅ 已生成 {len(students)} 份档案"); st.session_state.stats_archive += len(students)
             except Exception as e:
                 st.error(f"处理失败：{e}")
 
@@ -446,7 +453,7 @@ with tab1:
                         with open(zip_path, "rb") as f:
                             st.download_button("📦 下载全部档案（ZIP）", f.read(),
                                                "学生档案汇总.zip", "application/zip")
-                        st.success(f"✅ 已生成 {len(st.session_state.archive_students)} 份档案")
+                        st.success(f"✅ 已生成 {len(st.session_state.archive_students)} 份档案"); st.session_state.stats_archive += len(st.session_state.archive_students)
             with col_clear:
                 if st.button("🗑 清空列表", key="clear_list"):
                     st.session_state.archive_students = {}
@@ -491,7 +498,7 @@ with tab2:
                             zf.write(sp, "全部反馈汇总.txt")
                         with open(zip_path, "rb") as f:
                             st.download_button("📥 下载全部反馈（ZIP）", f.read(), "课后反馈汇总.zip", "application/zip")
-                        st.success(f"✅ 已生成 {len(students_fb)} 份反馈")
+                        st.success(f"✅ 已生成 {len(students_fb)} 份反馈"); st.session_state.stats_feedback += len(students_fb)
             except Exception as e:
                 st.error(f"处理失败：{e}")
 
@@ -572,7 +579,7 @@ with tab2:
             btn_disabled = not (fb_lesson and fb_data)
             if st.button("🚀 生成全部反馈", type="primary", key="gen_fb_online", disabled=btn_disabled):
                 if fb_lesson and fb_data:
-                    st.success(f"✅ 已生成 {len(fb_data)} 份反馈，点击下方复制按钮即可复制到微信")
+                    st.success(f"✅ 已生成 {len(fb_data)} 份反馈，点击下方复制按钮即可复制到微信"); st.session_state.stats_feedback += len(fb_data)
                     for i, s in enumerate(fb_data):
                         txt = f"【课后反馈】{fb_date}\n\n📚 上节课主要内容：\n\n{fb_lesson}\n\n👦 {s['姓名']}课堂表现：\n\n{s['表现']}"
                         st.markdown(f"**{s['姓名']}**")
@@ -587,6 +594,14 @@ with tab2:
 # 侧边栏
 # ============================================================
 with st.sidebar:
+    # 今日统计
+    sa = st.session_state.get("stats_archive", 0)
+    sf = st.session_state.get("stats_feedback", 0)
+    if sa or sf:
+        cols = st.columns(2)
+        cols[0].metric("📋 今日档案", sa)
+        cols[1].metric("✏️ 今日反馈", sf)
+        st.divider()
     st.markdown("### ⚙️ 设置")
     with st.expander("🔑 AI总结 API Key", expanded=False):
         api_key = st.text_input("DeepSeek API Key", type="password", key="deepseek_key_input",
