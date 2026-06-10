@@ -221,15 +221,15 @@ with tab1:
                 with sc2:
                     teacher = st.text_input("托管老师", value=ds.get("托管老师",""), key=f"st_{st_name}_{i}")
 
-                sc3, sc4, sc5 = st.columns(3)
+                sc3, sc4, sc5, sc6 = st.columns(4)
                 with sc3:
-                    score = st.text_input("月考成绩", key=f"ss_{st_name}_{i}")
+                    score = st.text_input("成绩", key=f"ss_{st_name}_{i}")
                 with sc4:
-                    class_rank = st.text_input("班级排名", key=f"scr_{st_name}_{i}")
+                    class_rank = st.text_input("班排", key=f"scr_{st_name}_{i}")
                 with sc5:
+                    school_rank = st.text_input("校排", key=f"ssr_{st_name}_{i}")
+                with sc6:
                     total_score = st.text_input("总分", key=f"sts_{st_name}_{i}")
-
-                school_rank = st.text_input("学校排名", key=f"ssr_{st_name}_{i}")
 
                 adv = st.text_area("优点", key=f"sa_{st_name}_{i}", height=68)
                 weak = st.text_area("不足", key=f"sw_{st_name}_{i}", height=68)
