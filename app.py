@@ -11,7 +11,7 @@ from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from collections import defaultdict
-import json, os, tempfile, zipfile, copy
+import io, json, os, tempfile, zipfile, copy
 
 st.set_page_config(page_title="教培效率工具", page_icon="📚", layout="wide")
 st.title("📚 教培效率工具 v2")
