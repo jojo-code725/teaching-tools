@@ -202,72 +202,76 @@ with tab1:
 
         default_subs = auto_info.get("科目", [{"科目":"英语","托管老师":""},{"科目":"数学","托管老师":""},{"科目":"物理","托管老师":""},{"科目":"语文","托管老师":""}])
 
-        # --- 科目编辑 ---
-        st.subheader("📝 科目内容")
-
-        # 管理科目列表
+        # --- 成绩汇总表 ---
+        st.subheader("📊 成绩汇总")
         if f"subj_count_{st_name}" not in st.session_state:
             st.session_state[f"subj_count_{st_name}"] = max(len(default_subs), 1)
 
-        subj_data = []
         subj_count = st.session_state[f"subj_count_{st_name}"]
+        subj_data = []
 
+        # Table header
+        h_cols = st.columns([2, 1.5, 1, 1, 1, 1])
+        headers = ["科目", "老师", "成绩", "班排", "校排", "总分"]
+        for hc, h in zip(h_cols, headers):
+            with hc: st.caption(f"**{h}**")
+
+        # Score rows - compact
         for i in range(subj_count):
             ds = default_subs[i] if i < len(default_subs) else {"科目":"", "托管老师":""}
-            with st.expander(f"科目 {i+1}: {ds.get('科目','新科目')}", expanded=(i==0)):
-                sc1, sc2 = st.columns([2, 2])
-                with sc1:
-                    subj_name = st.text_input("科目名称", value=ds.get("科目",""), key=f"sn_{st_name}_{i}")
-                with sc2:
-                    teacher = st.text_input("托管老师", value=ds.get("托管老师",""), key=f"st_{st_name}_{i}")
+            c1, c2, c3, c4, c5, c6 = st.columns([2, 1.5, 1, 1, 1, 1])
+            with c1:
+                subj_name = st.text_input("科目", value=ds.get("科目",""), key=f"sn_{st_name}_{i}", label_visibility="collapsed", placeholder="科目")
+            with c2:
+                teacher = st.text_input("老师", value=ds.get("托管老师",""), key=f"st_{st_name}_{i}", label_visibility="collapsed", placeholder="老师")
+            with c3:
+                score = st.text_input("成绩", key=f"ss_{st_name}_{i}", label_visibility="collapsed", placeholder="0")
+            with c4:
+                class_rank = st.text_input("班排", key=f"scr_{st_name}_{i}", label_visibility="collapsed", placeholder="0")
+            with c5:
+                school_rank = st.text_input("校排", key=f"ssr_{st_name}_{i}", label_visibility="collapsed", placeholder="0")
+            with c6:
+                total_score = st.text_input("总分", key=f"sts_{st_name}_{i}", label_visibility="collapsed", placeholder="0")
 
-                sc3, sc4, sc5, sc6 = st.columns(4)
-                with sc3:
-                    score = st.text_input("成绩", key=f"ss_{st_name}_{i}")
-                with sc4:
-                    class_rank = st.text_input("班排", key=f"scr_{st_name}_{i}")
-                with sc5:
-                    school_rank = st.text_input("校排", key=f"ssr_{st_name}_{i}")
-                with sc6:
-                    total_score = st.text_input("总分", key=f"sts_{st_name}_{i}")
-
-                adv = st.text_area("优点", key=f"sa_{st_name}_{i}", height=68)
-                weak = st.text_area("不足", key=f"sw_{st_name}_{i}", height=68)
-                exam = st.text_area("考情分析", key=f"se_{st_name}_{i}", height=100)
-                suggest = st.text_area("下一阶段建议", key=f"ssg_{st_name}_{i}", height=100)
-
-                subj_data.append({
-                    "科目": subj_name, "托管老师": teacher,
-                    "月考成绩": score, "班级排名": class_rank,
-                    "总分": total_score, "学校排名": school_rank,
-                    "优点": adv, "不足": weak,
-                    "考情分析": exam, "下一阶段建议": suggest
-                })
+            subj_data.append({
+                "科目": subj_name, "托管老师": teacher,
+                "月考成绩": score, "班级排名": class_rank,
+                "总分": total_score, "学校排名": school_rank,
+                "优点": "", "不足": "", "考情分析": "", "下一阶段建议": ""
+            })
 
         col_add, col_del, _ = st.columns([1, 1, 4])
         with col_add:
             if st.button("➕ 加一科", key="add_subj"):
-                st.session_state[f"subj_count_{st_name}"] += 1
-                st.rerun()
+                st.session_state[f"subj_count_{st_name}"] += 1; st.rerun()
         with col_del:
             if st.button("➖ 减一科", key="del_subj") and st.session_state[f"subj_count_{st_name}"] > 1:
-                st.session_state[f"subj_count_{st_name}"] -= 1
-                st.rerun()
+                st.session_state[f"subj_count_{st_name}"] -= 1; st.rerun()
+
+        # --- 科目评语 ---
+        st.divider()
+        st.subheader("📝 科目评语")
+
+        for i in range(subj_count):
+            sn = subj_data[i]["科目"] if i < len(subj_data) else f"科目{i+1}"
+            with st.expander(f"{sn or '新科目'}", expanded=(i==0)):
+                adv = st.text_area("优点", key=f"sa_{st_name}_{i}", height=68)
+                weak = st.text_area("不足", key=f"sw_{st_name}_{i}", height=68)
+                exam = st.text_area("考情分析", key=f"se_{st_name}_{i}", height=100)
+                suggest = st.text_area("下一阶段建议", key=f"ssg_{st_name}_{i}", height=100)
+                subj_data[i].update({"优点": adv, "不足": weak, "考情分析": exam, "下一阶段建议": suggest})
 
         st.divider()
 
-        # --- 操作按钮 ---
-        col_act1, col_act2 = st.columns([1, 3])
-        with col_act1:
-            if st.button("📥 添加到生成列表", type="primary", key="add_to_list") and st_name:
-                st.session_state.archive_students[st_name] = {
-                    "info": {"学校": school, "年级班级": grade, "入学时间": enroll},
-                    "subjects": copy.deepcopy(subj_data)
-                }
-                st.success(f"✅ {st_name} 已加入列表（共 {len(st.session_state.archive_students)} 名学生待生成）")
-                # 重置科目计数
-                if f"subj_count_{st_name}" in st.session_state:
-                    del st.session_state[f"subj_count_{st_name}"]
+        # --- 添加到列表 ---
+        if st.button("📥 添加到生成列表", type="primary", key="add_to_list") and st_name:
+            st.session_state.archive_students[st_name] = {
+                "info": {"学校": school, "年级班级": grade, "入学时间": enroll},
+                "subjects": copy.deepcopy(subj_data)
+            }
+            st.success(f"✅ {st_name} 已加入列表（共 {len(st.session_state.archive_students)} 名学生待生成）")
+            if f"subj_count_{st_name}" in st.session_state:
+                del st.session_state[f"subj_count_{st_name}"]
 
         # --- 待生成列表 ---
         if st.session_state.archive_students:
