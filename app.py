@@ -350,14 +350,27 @@ with tab1:
         # --- 生成按钮 ---
         col_btn, col_save = st.columns([2, 1])
         with col_btn:
-            if st.button("🚀 生成并下载", type="primary", key="gen_now") and st_name:
+            if st.button("🚀 生成档案", type="primary", key="gen_now") and st_name:
                 doc = build_archive_doc(st_name, {"学校": school, "年级班级": grade, "入学时间": enroll}, subj_data)
                 safe = st_name.replace("/","_")
                 buf = io.BytesIO(); doc.save(buf); buf.seek(0)
-                st.download_button("📥 下载档案", buf.read(), f"{safe}.docx",
+
+                # 预览内容
+                st.success(f"✅ {st_name} 的档案已生成")
+                with st.expander("📄 点击展开预览", expanded=True):
+                    st.markdown(f"**{st_name}** · {school} · {grade}")
+                    st.markdown("---")
+                    for s in subj_data:
+                        st.markdown(f"**{s['科目']}**  |  成绩: {s['月考成绩']}  |  班排: {s['班级排名']}  |  校排: {s['学校排名']}  |  总分: {s['总分']}")
+                        if s.get('优点'): st.caption(f"优点：{s['优点'][:100]}")
+                        if s.get('不足'): st.caption(f"不足：{s['不足'][:100]}")
+                        if s.get('考情分析'): st.caption(f"考情分析：{s['考情分析'][:100]}")
+                        if s.get('下一阶段建议'): st.caption(f"建议：{s['下一阶段建议'][:100]}")
+                        st.markdown("---")
+
+                st.download_button("📥 下载 Word 文档", buf.getvalue(), f"{safe}.docx",
                                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                                    key=f"dl_now_{safe}")
-                st.success(f"✅ {st_name} 的档案已生成")
                 st.session_state.archive_students[st_name] = {
                     "info": {"学校": school, "年级班级": grade, "入学时间": enroll},
                     "subjects": copy.deepcopy(subj_data)
