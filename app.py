@@ -546,13 +546,12 @@ with tab2:
             btn_disabled = not (fb_lesson and fb_data)
             if st.button("🚀 生成全部反馈", type="primary", key="gen_fb_online", disabled=btn_disabled):
                 if fb_lesson and fb_data:
-                    st.success(f"✅ 已生成 {len(fb_data)} 份反馈")
+                    st.success(f"✅ 已生成 {len(fb_data)} 份反馈，点击下方复制按钮即可复制到微信")
                     for i, s in enumerate(fb_data):
                         txt = f"【课后反馈】{fb_date}\n\n📚 上节课主要内容：\n\n{fb_lesson}\n\n👦 {s['姓名']}课堂表现：\n\n{s['表现']}"
-                        with st.expander(f"📄 {s['姓名']}的反馈", expanded=(i==0)):
-                            st.text(txt)
-                            safe = s["姓名"].replace("/","_")
-                            st.download_button(f"📥 下载 {s['姓名']}.txt", txt, f"{safe}.txt", "text/plain", key=f"dl_fb_{i}")
+                        st.markdown(f"**{s['姓名']}**")
+                        st.code(txt, language=None)
+                        st.markdown("---")
         with col_save:
                 fb_draft_out = {"date": fb_date, "course": fb_course, "lesson": fb_lesson,
                                 "students": [{"name": s["姓名"], "notes": s["表现"]} for s in fb_data]}
