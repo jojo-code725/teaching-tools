@@ -28,6 +28,21 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# 密码保护
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.markdown("## 🔐 请输入访问密码")
+    pwd = st.text_input("密码", type="password", key="login_pwd")
+    if st.button("进入"):
+        if pwd == "yiming2026":
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("密码错误")
+    st.stop()
+
 st.markdown('<p class="main-header">🦉 一鸣教培助手</p>', unsafe_allow_html=True)
 st.markdown('<p class="sub-header">学生档案生成 · 课后反馈生成 · AI教案总结</p>', unsafe_allow_html=True)
 
