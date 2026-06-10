@@ -15,8 +15,21 @@ import io, json, os, tempfile, zipfile, copy, re, ssl
 import urllib.request, urllib.error
 ssl._create_default_https_context = ssl._create_unverified_context
 
-st.set_page_config(page_title="教培效率工具", page_icon="📚", layout="wide")
-st.title("📚 教培效率工具 v2")
+st.set_page_config(page_title="一鸣教培助手", page_icon="🦉", layout="wide")
+
+# 自定义样式
+st.markdown("""
+<style>
+    .main-header { font-size: 2rem; font-weight: 700; color: #2B579A; margin-bottom: 0; }
+    .sub-header { color: #888; font-size: 0.9rem; margin-top: -0.5rem; margin-bottom: 1.5rem; }
+    .stButton > button { border-radius: 8px; }
+    .stDownloadButton > button { border-radius: 8px; }
+    section[data-testid="stSidebar"] { background-color: #f8f9fa; }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('<p class="main-header">🦉 一鸣教培助手</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-header">学生档案生成 · 课后反馈生成 · AI教案总结</p>', unsafe_allow_html=True)
 
 # ============================================================
 # 共享工具函数（文档生成）
@@ -574,29 +587,19 @@ with tab2:
 # 侧边栏
 # ============================================================
 with st.sidebar:
-    st.markdown("### 🔑 DeepSeek API Key")
-    api_key = st.text_input("输入Key解锁AI总结功能", type="password", key="deepseek_key_input",
-                            help="在 platform.deepseek.com 获取")
-    if api_key:
-        st.session_state.deepseek_key = api_key
-        st.success("已设置")
+    st.markdown("### ⚙️ 设置")
+    with st.expander("🔑 AI总结 API Key", expanded=False):
+        api_key = st.text_input("DeepSeek API Key", type="password", key="deepseek_key_input",
+                                placeholder="sk-...", help="在 platform.deepseek.com 获取")
+        if api_key:
+            st.session_state.deepseek_key = api_key
+            st.caption("✅ 已设置")
 
     st.divider()
-    st.markdown("### 📖 使用说明")
-    st.markdown("""
-    **两种输入方式，切换顶部开关即可：**
-
-    ✏️ **在线填写**（推荐）
-    - 直接在网页上填，不用Excel
-    - 档案生成：选学生→填各科内容→加入列表→一键生成
-    - 反馈生成：填上课内容+学生表现→生成
-
-    📊 **上传Excel**
-    - 兼容旧版Excel模板
-    - 适用于已有Excel数据的场景
-
-    ---
-    **输出格式：**
-    - 学生档案 → .docx（Word文档）
-    - 课后反馈 → .txt（复制发微信）
-    """)
+    st.markdown("### 📖 快速上手")
+    st.caption("**学生档案**：填信息 → 填成绩 → 填评语 → 生成预览 → 下载")
+    st.caption("**课后反馈**：填上课内容 → 填学生表现 → 生成 → 一键复制")
+    st.caption("**AI总结**：侧边栏填Key → 上传教案 → 点AI总结")
+    st.caption("**保存草稿**：点💾按钮下载JSON → 下次📂恢复")
+    st.divider()
+    st.caption("输出：档案 .docx | 反馈 可复制文本")
